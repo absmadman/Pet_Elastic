@@ -1,6 +1,7 @@
 package main
 
 import (
+	"Pet_Elastic/doc"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -120,7 +121,7 @@ func MakeRequest(es *elasticsearch.Client, RequestFunc func(es *elasticsearch.Cl
 
 func DefaultInit(es *elasticsearch.Client) {
 
-	data := JsonParse("data.json")
+	data := JsonParse("initial_data.json")
 
 	MakeRequest(es, func(es *elasticsearch.Client) (*esapi.Response, error) {
 		var Indexes []string
@@ -314,7 +315,7 @@ func main() {
 		pagenum := GetPage(w, r)
 
 		templates := template.New("places")
-		_, err = templates.Parse(doc)
+		_, err = templates.Parse(docs.Doc)
 
 		CheckErrorServer(err, w)
 
@@ -336,7 +337,7 @@ func main() {
 		}
 
 		templates := template.New("searched")
-		_, err = templates.Parse(docSearchResult)
+		_, err = templates.Parse(docs.DocSearchResult)
 
 		CheckErrorServer(err, w)
 
@@ -371,7 +372,7 @@ func main() {
 		name := r.URL.Query().Get("name")
 
 		templates := template.New("searched")
-		_, err = templates.Parse(docSearchResult)
+		_, err = templates.Parse(docs.DocSearchResult)
 
 		CheckErrorServer(err, w)
 

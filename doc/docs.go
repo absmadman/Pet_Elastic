@@ -1,6 +1,6 @@
 package docs
 
-const doc = `
+const Doc = `
 		<!doctype html>
 		<html>
 		<head>
@@ -24,7 +24,7 @@ const doc = `
 		</html>
 	`
 
-const docSearchResult = `
+const DocSearchResult = `
 		<!doctype html>
 		<html>
 		<head>
