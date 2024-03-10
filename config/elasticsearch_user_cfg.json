@@ -1,0 +1,5 @@
+{
+	"username": "elastic",
+	"password": "wUy93UtHNOsxwanTh6GQ",
+	"addresses": ["http://localhost:9200/"]
+}

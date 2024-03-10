@@ -1,20 +1,14 @@
 package main
 
 import (
-	"Pet_Elastic/doc"
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
+	"Pet_Elastic/config"
+	esfunc "Pet_Elastic/elasticsearch"
+	"Pet_Elastic/helpers"
+	"Pet_Elastic/server"
 	"github.com/elastic/go-elasticsearch/v8"
-	"github.com/elastic/go-elasticsearch/v8/esapi"
-	"html/template"
-	"net/http"
-	"os"
-	"strconv"
-	"strings"
 )
 
+/*
 type Page struct {
 	Title    string
 	Places   []Place
@@ -28,7 +22,9 @@ type PageSearchResult struct {
 	Total  int
 	RspRes RspSearch
 }
+*/
 
+/*
 type Place struct {
 	Id      int      `json:"id"`
 	Name    string   `json:"name"`
@@ -58,37 +54,43 @@ type RspSearch struct {
 		} `json:"hits"`
 	} `json:"hits"`
 }
-
-func ConfigEs() *elasticsearch.Config {
-	return &elasticsearch.Config{
-		Addresses: []string{
-			"http://localhost:9200",
-		},
-		Username: "elastic",
-		Password: "wUy93UtHNOsxwanTh6GQ",
+*/
+/*
+func CreateHtmlPage(id int, es *elasticsearch.Client, w http.ResponseWriter) *Page {
+	var PlacesL []Place
+	for i := id; i < id+10; i++ {
+		PlacesL = append(PlacesL, *GetData(i, es, w))
 	}
+	fmt.Println(es.Indices)
+	page := Page{Title: "Places", Places: PlacesL, NextPage: id + 1, CurrPage: id, PrevPage: id - 1}
+	return &page
 }
 
-func Check(err error) {
-	if err != nil {
-		panic(err)
+
+*/
+/*
+	func Check(err error) {
+		if err != nil {
+			panic(err)
+		}
 	}
-}
 
-func JsonParse(filename string) []Place {
-	data, err := os.ReadFile(filename)
+	func JsonParse(filename string) []Place {
+		data, err := os.ReadFile(filename)
 
-	Check(err)
+		Check(err)
 
-	var Places []Place
+		var Places []Place
 
-	err = json.Unmarshal(data, &Places)
+		err = json.Unmarshal(data, &Places)
 
-	Check(err)
+		Check(err)
 
-	return Places
-}
+		return Places
+	}
+*/
 
+/*
 func InsertData(es *elasticsearch.Client, Places []Place) {
 
 	var data strings.Builder
@@ -109,6 +111,9 @@ func InsertData(es *elasticsearch.Client, Places []Place) {
 
 	CheckResponse(blk, "Index request success", "Error request")
 }
+*/
+
+/*
 
 func MakeRequest(es *elasticsearch.Client, RequestFunc func(es *elasticsearch.Client) (*esapi.Response, error)) {
 	res, err := RequestFunc(es)
@@ -121,7 +126,7 @@ func MakeRequest(es *elasticsearch.Client, RequestFunc func(es *elasticsearch.Cl
 
 func DefaultInit(es *elasticsearch.Client) {
 
-	data := JsonParse("initial_data.json")
+	data := JsonParse("data/initial_data.json")
 
 	MakeRequest(es, func(es *elasticsearch.Client) (*esapi.Response, error) {
 		var Indexes []string
@@ -162,17 +167,9 @@ func DefaultInit(es *elasticsearch.Client) {
 		return request.Do(context.Background(), es)
 	})
 }
+*/
 
-func CreateHtmlPage(id int, es *elasticsearch.Client, w http.ResponseWriter) *Page {
-	var PlacesL []Place
-	for i := id; i < id+10; i++ {
-		PlacesL = append(PlacesL, *GetData(i, es, w))
-	}
-	fmt.Println(es.Indices)
-	page := Page{Title: "Places", Places: PlacesL, NextPage: id + 1, CurrPage: id, PrevPage: id - 1}
-	return &page
-}
-
+/*
 func GetData(id int, es *elasticsearch.Client, w http.ResponseWriter) *Place {
 	var Indexes []string
 	var CurPlace Place
@@ -201,25 +198,26 @@ func GetData(id int, es *elasticsearch.Client, w http.ResponseWriter) *Place {
 	return &CurPlace
 }
 
-func CheckPagenum(pagenum int, w http.ResponseWriter) {
-	if pagenum < 1 {
-		http.Error(w, "Bad request", http.StatusBadRequest)
-	}
-}
+*/
+
+/*
 
 func CheckErrorServer(err error, w http.ResponseWriter) {
 	if err != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 	}
 }
-
+*/
+/*
 func GetPage(w http.ResponseWriter, r *http.Request) int {
 	pagenum, err := strconv.Atoi(r.URL.Query().Get("page"))
 	CheckPagenum(pagenum, w)
 	CheckErrorServer(err, w)
 	return pagenum
 }
+*/
 
+/*
 func StrToFloat(str string) float64 {
 	flt, err := strconv.ParseFloat(str, 64)
 	Check(err)
@@ -235,152 +233,156 @@ func CheckResponse(response *esapi.Response, GoodResponse string, BadResponse st
 		fmt.Println()
 	}
 }
+*/
 
-func ComposeSearchedPage(Rsp RspSearch) *PageSearchResult {
-	return &PageSearchResult{Title: "Places", RspRes: Rsp, Total: len(Rsp.Hits.Hits)}
-}
-
+/*
 func SearchClosest(lonStr string, latStr string, es *elasticsearch.Client) *PageSearchResult {
 
-	LatFl := StrToFloat(latStr)
-	LonFl := StrToFloat(lonStr)
+		LatFl := StrToFloat(latStr)
+		LonFl := StrToFloat(lonStr)
 
-	q := map[string]interface{}{
-		"query": map[string]interface{}{
-			"bool": map[string]interface{}{
-				"filter": map[string]interface{}{
-					"geo_distance": map[string]interface{}{
-						"distance": "0.25km",
-						"location": map[string]interface{}{
-							"lat": LatFl,
-							"lon": LonFl,
+		q := map[string]interface{}{
+			"query": map[string]interface{}{
+				"bool": map[string]interface{}{
+					"filter": map[string]interface{}{
+						"geo_distance": map[string]interface{}{
+							"distance": "0.25km",
+							"location": map[string]interface{}{
+								"lat": LatFl,
+								"lon": LonFl,
+							},
 						},
 					},
 				},
 			},
-		},
+		}
+
+		return DoSearchRequest(q, es)
 	}
+*/
 
-	return DoSearchRequest(q, es)
-}
+/*
+	func DoSearchRequest(q map[string]interface{}, es *elasticsearch.Client) *PageSearchResult {
+		var b bytes.Buffer
 
-func DoSearchRequest(q map[string]interface{}, es *elasticsearch.Client) *PageSearchResult {
-	var b bytes.Buffer
+		err := json.NewEncoder(&b).Encode(q)
 
-	err := json.NewEncoder(&b).Encode(q)
+		Check(err)
 
-	Check(err)
+		res, err := es.Search(
+			es.Search.WithIndex("places"),
+			es.Search.WithBody(&b),
+			es.Search.WithContext(context.Background()),
+		)
 
-	res, err := es.Search(
-		es.Search.WithIndex("places"),
-		es.Search.WithBody(&b),
-		es.Search.WithContext(context.Background()),
-	)
+		Check(err)
 
-	Check(err)
+		var Rsp RspSearch
 
-	var Rsp RspSearch
+		err = json.NewDecoder(res.Body).Decode(&Rsp)
 
-	err = json.NewDecoder(res.Body).Decode(&Rsp)
+		Check(err)
 
-	Check(err)
-
-	return ComposeSearchedPage(Rsp)
-}
+		return ComposeSearchedPage(Rsp)
+	}
 
 func SearchByName(name string, es *elasticsearch.Client) *PageSearchResult {
 
-	q := map[string]interface{}{
-		"query": map[string]interface{}{
-			"match": map[string]interface{}{
-				"name": name,
+		q := map[string]interface{}{
+			"query": map[string]interface{}{
+				"match": map[string]interface{}{
+					"name": name,
+				},
 			},
-		},
+		}
+
+		return DoSearchRequest(q, es)
 	}
 
-	return DoSearchRequest(q, es)
-}
+	func LaunchHttpServer(es *elasticsearch.Client) {
+		var err error
+		http.HandleFunc("/places/show", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Content-Type", "text/html")
 
+			pagenum := GetPage(w, r)
+
+			templates := template.New("places")
+			_, err = templates.Parse(docs.Doc)
+
+			CheckErrorServer(err, w)
+
+			page := *CreateHtmlPage(pagenum, es, w)
+			err = templates.Execute(w, page)
+
+			CheckErrorServer(err, w)
+		})
+
+		http.HandleFunc("/places/closest", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Content-Type", "text/html")
+
+			latStr := r.URL.Query().Get("lat")
+			lonStr := r.URL.Query().Get("lon")
+
+			if latStr == "" || lonStr == "" {
+				http.Error(w, "Bad request", http.StatusBadRequest)
+				return
+			}
+
+			templates := template.New("searched")
+			_, err = templates.Parse(docs.DocSearchResult)
+
+			CheckErrorServer(err, w)
+
+			err = templates.Execute(w, SearchClosest(lonStr, latStr, es))
+
+			CheckErrorServer(err, w)
+
+		})
+
+		http.HandleFunc("/places/add", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Content-Type", "text/html")
+
+			var place Place
+
+			err := json.NewDecoder(r.Body).Decode(&place)
+
+			if err != nil {
+				http.Error(w, "Bad request", http.StatusBadRequest)
+				return
+			}
+
+			var places []Place
+
+			places = append(places, place)
+
+			InsertData(es, places)
+		})
+
+		http.HandleFunc("/places/search/name", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Add("Content-Type", "text/html")
+
+			name := r.URL.Query().Get("name")
+
+			templates := template.New("searched")
+			_, err = templates.Parse(docs.DocSearchResult)
+
+			CheckErrorServer(err, w)
+
+			err = templates.Execute(w, SearchByName(name, es))
+
+			CheckErrorServer(err, w)
+
+		})
+
+		http.ListenAndServe(":8080", nil)
+	}
+*/
 func main() {
-	cfg := ConfigEs()
-	es, err := elasticsearch.NewClient(*cfg)
+	es, err := elasticsearch.NewClient(*config.NewCfg())
 
-	Check(err)
+	helpers.Check(err)
 
-	DefaultInit(es)
+	esfunc.DefaultInit(es)
 
-	http.HandleFunc("/places/show", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "text/html")
-
-		pagenum := GetPage(w, r)
-
-		templates := template.New("places")
-		_, err = templates.Parse(docs.Doc)
-
-		CheckErrorServer(err, w)
-
-		page := *CreateHtmlPage(pagenum, es, w)
-		err = templates.Execute(w, page)
-
-		CheckErrorServer(err, w)
-	})
-
-	http.HandleFunc("/places/closest", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "text/html")
-
-		latStr := r.URL.Query().Get("lat")
-		lonStr := r.URL.Query().Get("lon")
-
-		if latStr == "" || lonStr == "" {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		templates := template.New("searched")
-		_, err = templates.Parse(docs.DocSearchResult)
-
-		CheckErrorServer(err, w)
-
-		err = templates.Execute(w, SearchClosest(lonStr, latStr, es))
-
-		CheckErrorServer(err, w)
-
-	})
-
-	http.HandleFunc("/places/add", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "text/html")
-
-		var place Place
-
-		err := json.NewDecoder(r.Body).Decode(&place)
-
-		if err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		var places []Place
-
-		places = append(places, place)
-
-		InsertData(es, places)
-	})
-
-	http.HandleFunc("/places/search/name", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "text/html")
-
-		name := r.URL.Query().Get("name")
-
-		templates := template.New("searched")
-		_, err = templates.Parse(docs.DocSearchResult)
-
-		CheckErrorServer(err, w)
-
-		err = templates.Execute(w, SearchByName(name, es))
-
-		CheckErrorServer(err, w)
-
-	})
-
-	http.ListenAndServe(":8080", nil)
+	server.LaunchHttpServer(es)
 }

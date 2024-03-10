@@ -1,5 +1,23 @@
 package docs
 
+import (
+	esfunc "Pet_Elastic/elasticsearch"
+)
+
+type Page struct {
+	Title    string
+	Places   []esfunc.Place
+	CurrPage int
+	NextPage int
+	PrevPage int
+}
+
+type PageSearchResult struct {
+	Title  string
+	Total  int
+	RspRes esfunc.RspSearch
+}
+
 const Doc = `
 		<!doctype html>
 		<html>
