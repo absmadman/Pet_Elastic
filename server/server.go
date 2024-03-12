@@ -18,8 +18,8 @@ import (
 
 func SearchClosest(lonStr string, latStr string, es *elasticsearch.Client) *docs.PageSearchResult {
 
-	LatFl := helpers.StrToFloat(latStr)
-	LonFl := helpers.StrToFloat(lonStr)
+	latFl := helpers.StrToFloat(latStr)
+	lonFl := helpers.StrToFloat(lonStr)
 
 	q := map[string]interface{}{
 		"query": map[string]interface{}{
@@ -28,8 +28,8 @@ func SearchClosest(lonStr string, latStr string, es *elasticsearch.Client) *docs
 					"geo_distance": map[string]interface{}{
 						"distance": "0.25km",
 						"location": map[string]interface{}{
-							"lat": LatFl,
-							"lon": LonFl,
+							"lat": latFl,
+							"lon": lonFl,
 						},
 					},
 				},
@@ -78,7 +78,10 @@ func SearchByName(name string, es *elasticsearch.Client) *docs.PageSearchResult 
 }
 func CreateHtmlPage(id int, es *elasticsearch.Client, w http.ResponseWriter) *docs.Page {
 	var PlacesL []esfunc.Place
-	for i := id; i < id+10; i++ {
+	for i := id * 10; i < id*10+10; i++ {
+		if i == 0 {
+			continue
+		}
 		PlacesL = append(PlacesL, *GetData(i, es, w))
 	}
 	page := docs.Page{Title: "Places", Places: PlacesL, NextPage: id + 1, CurrPage: id, PrevPage: id - 1}
@@ -90,12 +93,12 @@ func ComposeSearchedPage(Rsp esfunc.RspSearch) *docs.PageSearchResult {
 }
 
 func GetData(id int, es *elasticsearch.Client, w http.ResponseWriter) *esfunc.Place {
-	var Indexes []string
-	var CurPlace esfunc.Place
+	var indexes []string
+	var curPlace esfunc.Place
 
-	Indexes = append(Indexes, fmt.Sprintf("places/_doc/%d", id))
+	indexes = append(indexes, fmt.Sprintf("places/_doc/%d", id))
 	request := esapi.IndicesGetRequest{
-		Index:  Indexes,
+		Index:  indexes,
 		Pretty: true,
 		Human:  true,
 	}
@@ -103,18 +106,18 @@ func GetData(id int, es *elasticsearch.Client, w http.ResponseWriter) *esfunc.Pl
 
 	if result.IsError() {
 		http.Error(w, "Bad request", http.StatusBadRequest)
-		return &CurPlace
+		return &curPlace
 	}
 
 	CheckErrorServer(err, w)
 
 	data := strings.Split(result.String(), "\"_source\" : ")
 
-	err = json.Unmarshal([]byte(data[1][:len(data[1])-2]), &CurPlace)
+	err = json.Unmarshal([]byte(data[1][:len(data[1])-2]), &curPlace)
 
 	CheckErrorServer(err, w)
 
-	return &CurPlace
+	return &curPlace
 }
 
 func CheckErrorServer(err error, w http.ResponseWriter) {
@@ -124,89 +127,112 @@ func CheckErrorServer(err error, w http.ResponseWriter) {
 }
 
 func GetPage(w http.ResponseWriter, r *http.Request) int {
-	PageNum, err := strconv.Atoi(r.URL.Query().Get("page"))
-	if PageNum < 1 {
+
+	pageNum, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if pageNum < 0 {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 	}
 	CheckErrorServer(err, w)
-	return PageNum
+	return pageNum
+}
+
+func ShowHandler(w http.ResponseWriter, r *http.Request, es *elasticsearch.Client) {
+	var err error
+
+	w.Header().Add("Content-Type", "text/html")
+
+	pageNum := GetPage(w, r)
+
+	templates := template.New("places")
+	_, err = templates.Parse(docs.Doc)
+
+	CheckErrorServer(err, w)
+
+	page := *CreateHtmlPage(pageNum, es, w)
+	err = templates.Execute(w, page)
+
+	CheckErrorServer(err, w)
+}
+
+func ClosestHandler(w http.ResponseWriter, r *http.Request, es *elasticsearch.Client) {
+	var err error
+
+	w.Header().Add("Content-Type", "text/html")
+
+	latStr := r.URL.Query().Get("lat")
+	lonStr := r.URL.Query().Get("lon")
+
+	if latStr == "" || lonStr == "" {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	templates := template.New("searched")
+	_, err = templates.Parse(docs.DocSearchResult)
+
+	CheckErrorServer(err, w)
+
+	err = templates.Execute(w, SearchClosest(lonStr, latStr, es))
+
+	CheckErrorServer(err, w)
+}
+
+func AddHandler(w http.ResponseWriter, r *http.Request, es *elasticsearch.Client) {
+	w.Header().Add("Content-Type", "text/html")
+
+	var place esfunc.Place
+
+	err := json.NewDecoder(r.Body).Decode(&place)
+
+	if err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	var places []esfunc.Place
+
+	places = append(places, place)
+
+	esfunc.InsertData(es, places)
+}
+
+func SearchNameHandler(w http.ResponseWriter, r *http.Request, es *elasticsearch.Client) {
+	var err error
+
+	w.Header().Add("Content-Type", "text/html")
+
+	name := r.URL.Query().Get("name")
+
+	templates := template.New("searched")
+	_, err = templates.Parse(docs.DocSearchResult)
+
+	CheckErrorServer(err, w)
+
+	err = templates.Execute(w, SearchByName(name, es))
+
+	CheckErrorServer(err, w)
+
 }
 
 func LaunchHttpServer(es *elasticsearch.Client) {
-	var err error
+
 	http.HandleFunc("/places/show", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "text/html")
-
-		PageNum := GetPage(w, r)
-
-		templates := template.New("places")
-		_, err = templates.Parse(docs.Doc)
-
-		CheckErrorServer(err, w)
-
-		page := *CreateHtmlPage(PageNum, es, w)
-		err = templates.Execute(w, page)
-
-		CheckErrorServer(err, w)
+		ShowHandler(w, r, es)
 	})
 
 	http.HandleFunc("/places/closest", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "text/html")
-
-		latStr := r.URL.Query().Get("lat")
-		lonStr := r.URL.Query().Get("lon")
-
-		if latStr == "" || lonStr == "" {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		templates := template.New("searched")
-		_, err = templates.Parse(docs.DocSearchResult)
-
-		CheckErrorServer(err, w)
-
-		err = templates.Execute(w, SearchClosest(lonStr, latStr, es))
-
-		CheckErrorServer(err, w)
-
+		ClosestHandler(w, r, es)
 	})
 
 	http.HandleFunc("/places/add", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "text/html")
-
-		var place esfunc.Place
-
-		err := json.NewDecoder(r.Body).Decode(&place)
-
-		if err != nil {
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		var places []esfunc.Place
-
-		places = append(places, place)
-
-		esfunc.InsertData(es, places)
+		AddHandler(w, r, es)
 	})
 
 	http.HandleFunc("/places/search/name", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "text/html")
-
-		name := r.URL.Query().Get("name")
-
-		templates := template.New("searched")
-		_, err = templates.Parse(docs.DocSearchResult)
-
-		CheckErrorServer(err, w)
-
-		err = templates.Execute(w, SearchByName(name, es))
-
-		CheckErrorServer(err, w)
-
+		SearchNameHandler(w, r, es)
 	})
 
-	err = http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil)
+
 	helpers.Check(err)
 }
